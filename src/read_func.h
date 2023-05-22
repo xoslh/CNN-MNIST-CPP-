@@ -3,7 +3,6 @@
 #include <fstream>
 #include <algorithm>
 #include "include/cnn.h"
-#include "sleep.h"
 using namespace std;
 
 uint32_t byteswap_uint32(uint32_t a)
