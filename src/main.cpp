@@ -1,6 +1,5 @@
 #include <bits/stdc++.h>
 #include "include/cnn.h"
-#include "sleep.h"
 #include "read_func.h"
 using namespace std;
 int main()
