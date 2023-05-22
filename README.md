@@ -1,3 +1,5 @@
+github部分公式无法渲染，用typora打开可有效提高观感
+
 # 1 卷积神经网络-CNN 的基本原理
 
 ​		卷积神经网络(Convolutional Neural Networks, CNNs)是一种深度学习算法，特别适用于图像处理和分析。其设计灵感来源于生物学中视觉皮层的机制，是一种强大的特征提取和分类工具。
@@ -475,38 +477,104 @@ void update_gradient( gradient_t& grad ){
 
 # 3 模型的训练效果
 
-​		训练的CNN网络结构如下
+## 3.1 训练速度
+
+​		环境：linux
+
+​		笔记本配置：surface laptop go2
+
+​		处理器：Intel(R) Core(TM) i5-1035G1 CPU @ 1.00GHz   1.19 GHz
+
+​		双层卷积的速度约为 $350.8\ 张图/秒$ ，单层约为 $970\ 张图/秒$  
+
+## 3.2 测试准确率
+
+### 3.2.1 一层卷积
 
 ```cpp
-Model M;
-M.add_conv( 1, 5, 10, {28, 28, 1} );
+//一层卷积层的神经网络结构
+M.add_conv( 1, 5, 10, {28, 28, 1} ); //卷积核不一定是10
 M.add_relu( M.output_size() );
 M.add_pool( 2, 2, M.output_size() );
-M.add_conv( 1, 3, 12, M.output_size() );
-M.add_relu( M.output_size() );
-M.add_pool( 2, 2, M.output_size() );
+
 M.add_fc( M.output_size(), 10 );
 ```
 
-## 3.1 训练速度
+​		**2 epoch（8个卷积核）**：测试样本的准确率为 0.9693
 
-​		在我的笔记本上跑的速度约为 $350.8\ 张图/秒$ （处理器Intel(R) Core(TM) i5-1035G1 CPU @ 1.00GHz   1.19 GHz）
+<img src="https://s1.imagehub.cc/images/2023/05/22/image-20230522222128520.png" alt="image-20230522222128520" style="zoom:50%;" />
 
-## 3.2 正确率
+​		**2 epoch（10个卷积核）**：测试样本的准确率为 0.9706 
 
-+ 2 epoch
+<img src="https://s1.imagehub.cc/images/2023/05/22/image-20230522222823346.png" alt="image-20230522222823346" style="zoom: 50%;" />
 
-    <img src="https://s1.imagehub.cc/images/2023/05/22/image-20230522192517194.png" alt="image-20230522192517194" style="zoom:67%;" />
+​		**10 epoch（10个卷积核）** ：测试样本的准确率为 0.9762
 
-+ 10 epoch
+<img src="https://s1.imagehub.cc/images/2023/05/22/image-20230522225054448.png" alt="image-20230522225054448" style="zoom:50%;" />
 
-    <img src="https://s1.imagehub.cc/images/2023/05/22/image-20230522192324330.png" alt="image-20230522192324330" style="zoom:50%;" />
+### 3.2.2 双层卷积
 
-+ 50 epoch
+```cpp
+//双层卷积层的神经网络结构
+M.add_conv( 1, 5, 10, {28, 28, 1} );
+M.add_relu( M.output_size() );
+M.add_pool( 2, 2, M.output_size() );
 
-    <img src="https://s1.imagehub.cc/images/2023/05/22/image-20230522192441134.png" alt="image-20230522192441134" style="zoom: 67%;" />
+M.add_conv( 1, 3, 12, M.output_size() );
+M.add_relu( M.output_size() );
+M.add_pool( 2, 2, M.output_size() );
+
+M.add_fc( M.output_size(), 10 );
+```
+
+​		**2 epoch**：测试样本准确率为 0.9213 
+
+<img src="https://s1.imagehub.cc/images/2023/05/22/image-20230522192517194.png" alt="image-20230522192517194" style="zoom: 50%;" />
+
+​		**10 epoch**：测试样本准确率为 0.9621 
+
+<img src="https://s1.imagehub.cc/images/2023/05/22/image-20230522192324330.png" alt="image-20230522192324330" style="zoom: 33%;" />
+
+​		**50 epoch**：测试样本准确率为 0.9643
+
+<img src="https://s1.imagehub.cc/images/2023/05/22/image-20230522192441134.png" alt="image-20230522192441134" style="zoom: 50%;" />
+
+### 3.2.3 三层卷积
+
+```cpp
+M.add_conv( 1, 5, 8, {28, 28, 1} );
+M.add_relu( M.output_size() );
+M.add_pool( 2, 2, M.output_size() );
+
+M.add_conv( 1, 2, 10, M.output_size() );
+M.add_relu( M.output_size() );
+M.add_pool( 2, 2, M.output_size() );
+
+M.add_conv( 1, 2, 12, M.output_size() );
+M.add_relu( M.output_size() );
+
+M.add_fc( M.output_size(), 10 );
+```
+
+​		**2 epoch**：测试样本准确率为 0.8191
+
+<img src="https://s1.imagehub.cc/images/2023/05/22/image-20230522230403511.png" alt="image-20230522230403511" style="zoom:50%;" />
+
+​		**10 epoch**：测试样本准确率为 0.8906
+
+<img src="https://s1.imagehub.cc/images/2023/05/22/image-20230522232946841.png" alt="image-20230522232946841" style="zoom:50%;" />
+
+### 3.2.4 准确率对比
+
+|          | 2 epoch                      | 10 epoch     | 50 epoch |
+| -------- | ---------------------------- | ------------ | -------- |
+| 一层卷积 | 0.9693(8 核) / 0.9706(10 核) | 0.9762(10核) | \        |
+| 双层卷积 | 0.9213                       | 0.9621       | 0.9643   |
+| 三层卷积 | 0.8191                       | 0.8906       | \        |
+
+​		一层卷积层的拟合效果最好准确率最高速度最快，神经网络层数越多效果越差。
 
 ## 3.3 瓶颈
 
-+ 速度慢后续导致准确率上不去
-+ 未实现 CNN 的多通道
++ 速度慢
++ 多通道未实现
