@@ -52,9 +52,6 @@ struct tensor_t
 
 	T& get( int _x, int _y, int _z )
 	{
-		assert( _x >= 0 && _y >= 0 && _z >= 0 );
-		assert( _x < size.x && _y < size.y && _z < size.z );
-
 		return data[
 			_z * (size.x * size.y) +
 				_y * (size.x) +

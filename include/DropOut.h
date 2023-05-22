@@ -16,35 +16,9 @@ public:
 		
 	}
 
-	// void activate( tensor_t<float>& in ) override
-	// {
-	// 	this->in = in;
-	// 	for ( int i = 0; i < in.size.x*in.size.y*in.size.z; i++ )
-	// 	{
-	// 		bool active = (rand() % RAND_MAX) / float( RAND_MAX ) <= p_activation;
-	// 		hitmap.data[i] = active;
-	// 		out.data[i] = active ? in.data[i] : 0.0f;
-	// 	}
-	// }
-
-	// void fix_weights() override
-	// {
-		
-	// }
-
-	// void calc_grads( tensor_t<float>& grad_next_layer ) override
-	// {
-	// 	for ( int i = 0; i < in.size.x*in.size.y*in.size.z; i++ )
-	// 		grads_in.data[i] = hitmap.data[i] ? grad_next_layer.data[i] : 0.0f;
-	// }
-	void activate( tensor_t<float>& in )
+	void activate( tensor_t<float>& in ) override
 	{
 		this->in = in;
-		activate();
-	}
-
-	void activate()
-	{
 		for ( int i = 0; i < in.size.x*in.size.y*in.size.z; i++ )
 		{
 			bool active = (rand() % RAND_MAX) / float( RAND_MAX ) <= p_activation;
@@ -53,13 +27,12 @@ public:
 		}
 	}
 
-
-	void fix_weights()
+	void fix_weights() override
 	{
 		
 	}
 
-	void calc_grads( tensor_t<float>& grad_next_layer )
+	void calc_grads( tensor_t<float>& grad_next_layer ) override
 	{
 		for ( int i = 0; i < in.size.x*in.size.y*in.size.z; i++ )
 			grads_in.data[i] = hitmap.data[i] ? grad_next_layer.data[i] : 0.0f;

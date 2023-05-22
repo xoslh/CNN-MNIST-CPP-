@@ -12,9 +12,7 @@ struct gradient_t
 
 static float update_weight( float w, gradient_t& grad, float multp = 1 )
 {
-	float m = (grad.grad + grad.oldgrad * MOMENTUM);
-	w -= LEARNING_RATE  * m * multp +
-		 LEARNING_RATE * WEIGHT_DECAY * w;
+	w -= LEARNING_RATE  * (grad.grad + grad.oldgrad * MOMENTUM) * multp + LEARNING_RATE * WEIGHT_DECAY * w;
 	return w;
 }
 

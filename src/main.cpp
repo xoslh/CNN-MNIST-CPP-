@@ -20,7 +20,7 @@ int main()
 	int cnt = 0;
 	float acc=0;
 	cout<<"start training..."<<endl;
-	int T=4;
+	int T=2;
 	while(T--)
 		for ( case_t& t : cases )
 		{
