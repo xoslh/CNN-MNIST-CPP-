@@ -427,11 +427,241 @@ void fix_weights() override{
 
 ​		其实你会发现fc layer就是一个特殊的卷积层，只不过卷积核大小和输入的大小相等了而已。
 
-## 2.5 其他层
+```cpp
+class fc_layer_t: public layer_t
+{
+public:
+	std::vector<float> input;
+	tensor_t<float> weights;
+	std::vector<gradient_t> gradients;
 
-​		其他层的实现方法都大同小异，详情请参考代码，欢迎提问。
+	fc_layer_t( tdsize in_size, int out_size )
+		:
+		layer_t( layer_type::fc, in_size, {out_size, 1, 1} ),
+		weights( in_size.x*in_size.y*in_size.z, out_size, 1 )
+	{
+		input = std::vector<float>( out_size );
+		gradients = std::vector<gradient_t>( out_size );
 
-## 2.6 算法优化
+		int N = in_size.x * in_size.y * in_size.z;
+
+		for ( int i = 0; i < out_size; i++ )
+			for ( int h = 0; h < in_size.x*in_size.y*in_size.z; h++ )
+				weights( h, i, 0 ) = 2.19722f / N * rand() / float( RAND_MAX );
+	}
+
+	//铺平后的id
+	int id( int x, int y, int z ) 
+	{
+		return z * (in.size.x * in.size.y) + y * (in.size.x) + x;
+	}
+
+	//激活函数： return tanhf(x)
+	float activator_function( float x ) 
+	{
+		return (float) 1.0f / (1.0f + exp( -x ));
+	}
+
+	//导回来
+	float activator_derivative( float x )
+	{
+		float sig = 1.0f / (1.0f + exp( -x ));
+		return sig * (1 - sig);
+	}
+
+	void activate( tensor_t<float>& in ) override
+	{
+		this->in = in;
+		float now = 0;
+		for ( int cnt = 0; cnt < out.size.x; cnt++, now=0 )
+		{
+			for ( int i = 0; i < in.size.x; i++ )
+				for ( int j = 0; j < in.size.y; j++ )
+					for ( int z = 0; z < in.size.z; z++ )
+						now += in( i, j, z ) * weights( id( i, j, z ) , cnt, 0 );
+			input[cnt] = now;
+			out( cnt, 0, 0 ) = activator_function( now );
+		}
+	}
+
+	void fix_weights() override
+	{
+		for ( int n = 0; n < out.size.x; n++ )
+		{
+			gradient_t& grad = gradients[n];
+			for ( int i = 0; i < in.size.x; i++ )
+				for ( int j = 0; j < in.size.y; j++ )
+					for ( int k = 0; k < in.size.z; k++ )
+					{
+						float& w = weights( id( i, j, k ), n, 0 );
+						w = update_weight( w, grad, in( i, j, k ) );
+					}
+
+			update_gradient( grad );
+		}
+	}
+
+	void calc_grads( tensor_t<float>& grad_next_layer ) override
+	{
+		for ( int i = 0; i < in.size.x; i++ )
+				for ( int j = 0; j < in.size.y; j++ )
+					for ( int k = 0; k < in.size.z; k++ ) grads_in( i, j, k ) = 0; 
+		for ( int n = 0; n < out.size.x; n++ )
+		{
+			gradient_t& grad = gradients[n];//激活函数后的grad
+			grad.grad = grad_next_layer( n, 0, 0 ) * activator_derivative( input[n] );
+            //激活函数前的grad
+			for ( int i = 0; i < in.size.x; i++ )
+				for ( int j = 0; j < in.size.y; j++ )
+					for ( int k = 0; k < in.size.z; k++ )
+						grads_in( i, j, k ) += grad.grad * weights( id( i, j, k ), n, 0 );//找对应贡献位置，偏导×系数
+		}
+	}
+
+};
+```
+
+## 2.5 Relu层（Relu layer）
+
+```cpp
+class relu_layer_t: public layer_t
+{
+public:
+
+	relu_layer_t( tdsize in_size )
+		:
+		layer_t( layer_type::relu, in_size, in_size ) {}
+
+	void activate( tensor_t<float>& in ) override
+	{
+		this->in = in;
+		for ( int i = 0; i < in.size.x; i++ )
+			for ( int j = 0; j < in.size.y; j++ )
+				for ( int z = 0; z < in.size.z; z++ )
+					out( i, j, z ) = in( i, j, z ) < 0 ? 0 : in( i, j, z );
+	}
+
+	void fix_weights() override {}
+
+	void calc_grads( tensor_t<float>& grad_next_layer ) override
+	{
+		for ( int i = 0; i < in.size.x; i++ )
+			for ( int j = 0; j < in.size.y; j++ )
+				for ( int z = 0; z < in.size.z; z++ )
+					grads_in( i, j, z ) = in( i, j, z ) < 0 ? 0 : 1 * grad_next_layer( i, j, z ) ;//贡献系数要么是0要么是1
+	}
+};
+```
+
+## 2.6 池化层（Pooling Layer）
+
+​		正向传播直接模拟即可，这一层没有权重，反向传播只需要求出输入的梯度。
+
+```cpp
+class pool_layer_t: public layer_t
+{
+public:
+	uint16_t stride;
+	uint16_t extend_filter;
+
+	pool_layer_t( uint16_t stride_, uint16_t extend_filter_, tdsize in_size )
+		:
+		stride(stride_),
+		extend_filter(extend_filter_),
+		layer_t( layer_type::pool, in_size, {(in_size.x - extend_filter_) / stride_ + 1, (in_size.y - extend_filter_) / stride_ + 1, in_size.z} )
+	{
+	}
+
+	point_t map_to_input( point_t out, int z ) ;
+
+	int GET_R( float f, int max, bool lim_min );
+
+	range_t map_to_output( int x, int y );
+
+	void activate( tensor_t<float>& in ) override
+	{
+		this->in = in;
+		for ( int x = 0; x < out.size.x; x++ )
+			for ( int y = 0; y < out.size.y; y++ )
+				for ( int z = 0; z < out.size.z; z++ )
+				{
+					point_t mapped = map_to_input( { (uint16_t)x, (uint16_t)y, 0 }, 0 );
+					float maxx = -FLT_MAX;
+					for ( int i = 0; i < extend_filter; i++ )
+						for ( int j = 0; j < extend_filter; j++ )
+						{
+							float v = in( mapped.x + i, mapped.y + j, z );
+							if ( v > maxx ) maxx = v;
+						}
+					out( x, y, z ) = maxx;
+				}
+	}
+
+	void fix_weights() override {}
+
+	void calc_grads( tensor_t<float>& grad_next_layer ) override
+	{
+		for ( int x = 0; x < in.size.x; x++ )
+			for ( int y = 0; y < in.size.y; y++ )
+			{
+				range_t rn = map_to_output( x, y );
+				for ( int z = 0; z < in.size.z; z++ )
+				{
+					float sum_error = 0;
+					//out[i, j, z] 是 in[x, y, z] 可能有贡献的位置，贡献的系数是 1 或者 0 
+					for ( int i = rn.min_x; i <= rn.max_x; i++ )
+					{
+						for ( int j = rn.min_y; j <= rn.max_y; j++ )
+						{
+							int is_max = in( x, y, z ) == out( i, j, z ) ? 1 : 0;
+							//偏导 * 系数
+							sum_error += is_max * grad_next_layer( i, j, z );
+						}
+					}
+					grads_in( x, y, z ) = sum_error;
+				}
+			}
+	}
+};
+```
+
+## 2.8 底层实现（tensor）
+
+```cpp
+//tensor的实现
+template<typename T>
+struct tensor_t{
+    T * data;//存矩阵
+	tdsize size;// struct tdsize{ int x, y, z; }; 
+};
+```
+
+​		考虑我们需要几维的矩阵，训练时图片是单张的喂，mnist训练集是灰度图片（单通道），输入图片是二维的，经过一层多核卷积后就变成三维，后续三维的矩阵经过池化后输出是三维的，经过 relu 后大小不变还是三维，再次经过卷积层，经过一个卷积核会输出二维的矩阵，多个卷积核就得到三维的矩阵，全连接层是在最后一层，输入三维输出一维。
+
+​		总结来说我的需要用到的 tensor 是三维的，支持的操作有：
+
++ 构造一个三维的 tensor 
+
+    ```cpp
+    tensor_t( int _x, int _y, int _z ){
+    	data = new T[_x * _y * _z], size = { _x, _y, _z };
+    }
+    ```
+
++ 查询某一位置的值
+
+    ```cpp
+    T& operator()( int _x, int _y, int _z ) { return data[ _z * (size.x * size.y) + _y * (size.x) + _x ]; }
+    ```
+
++ 矩阵加减
+
+    ```cpp
+    tensor_t<T> operator+( tensor_t<T>& other );
+    tensor_t<T> operator-( tensor_t<T>& other );
+    ```
+
+## 2.9 算法优化
 
 ​		传统的 Stochastic Gradient Descent（SGD）用于寻找函数的局部最小值。SGD 在每次迭代时只选择一个（随机梯度下降）或一小批（小批量梯度下降）样本来估计梯度并更新模型参数。SGD 的更新规则如下：
 $$
@@ -572,7 +802,14 @@ M.add_fc( M.output_size(), 10 );
 | 双层卷积 | 0.9213                       | 0.9621       | 0.9643   |
 | 三层卷积 | 0.8191                       | 0.8906       | \        |
 
-​		一层卷积层的拟合效果最好准确率最高速度最快，神经网络层数越多效果越差。
+​		明显看出一层卷积层的拟合效果最好准确率最高速度最快，而神经网络层数越多效果越差。但是这并不总是预期的结果，因为一般来说，增加更多的卷积层可以提升模型的能力来学习更复杂的特征，这通常能帮助模型在复杂数据集上表现得更好。分析出现单层 CNN 优于多层的原因：
+
+1. **数据集复杂度**：MNIST数据集相对简单，只包含手写数字的灰度图像。单层卷积层可能已经足够学习这些图像的关键特征。相比之下，多层CNN在此类简单数据集上可能过度拟合，导致在验证或测试数据上表现较差。
+2. **训练时长和计算资源**：更深的网络需要更多的时间和计算资源进行训练。困于笔记本的速度劣势，多层CNN没有充分训练，可能无法达到最佳性能。相反，单层CNN可以更快地收敛，可能更快地达到较好的性能。
+3. **网络结构和超参数**：如果多层CNN的设计或超参数选择不合适，如卷积核大小、步长、填充方式、激活函数、批量大小、学习率等，可能会影响其性能。如果这些参数没有经过良好的调优，多层CNN可能无法实现其潜在的性能。
+4. **正则化**：多层网络可能更容易过拟合数据，这可能导致在验证或测试集上的性能降低。如果没有适当的正则化策略（我们仅加入了动量，权重衰减），那么单层网络可能会表现得更好。
+
+​		因此，虽然深度学习通常与更深的网络和更复杂的模型相关联，但这并不意味着在所有情况下，更深的网络总是更好的。根据数据集的复杂性和可用的计算资源，有时候一个简单的模型可能会有更好的效果。
 
 ## 3.3 瓶颈
 
