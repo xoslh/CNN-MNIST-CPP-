@@ -45,19 +45,9 @@ struct tensor_t
 		return clone;
 	}
 
-	T& operator()( int _x, int _y, int _z )
-	{
-		return this->get( _x, _y, _z );
-	}
+	T& operator()( int _x, int _y, int _z ) { return data[ _z * (size.x * size.y) + _y * (size.x) + _x ]; }
 
-	T& get( int _x, int _y, int _z )
-	{
-		return data[
-			_z * (size.x * size.y) +
-				_y * (size.x) +
-				_x
-		];
-	}
+	T& get( int _x, int _y, int _z ){ return data[ _z * (size.x * size.y) + _y * (size.x) + _x ]; }
 
 	~tensor_t()
 	{

@@ -33,7 +33,7 @@ public:
 		return z * (in.size.x * in.size.y) + y * (in.size.x) + x;
 	}
 
-	//激活函数： return tanhf(x)
+	//激活函数： return sigmoid(x)
 	float activator_function( float x ) 
 	{
 		return (float) 1.0f / (1.0f + exp( -x ));
