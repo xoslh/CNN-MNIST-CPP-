@@ -74,10 +74,8 @@ public:
 					//out[i, j, z] 是 in[x, y, z] 可能有贡献的位置，贡献的系数是 1 或者 0 
 					for ( int i = rn.min_x; i <= rn.max_x; i++ )
 					{
-						int minx = i * stride;
 						for ( int j = rn.min_y; j <= rn.max_y; j++ )
 						{
-							int miny = j * stride;
 							int is_max = in( x, y, z ) == out( i, j, z ) ? 1 : 0;
 							//偏导 * 系数
 							sum_error += is_max * grad_next_layer( i, j, z );
